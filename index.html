@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nagyszüleim régi kincsei</title>
+<style>
+:root{--bg:#faf7f2;--card:#fff;--text:#2a2520;--muted:#6b645b;--accent:#8a5a2b;--line:#e6ded2}
+@media (prefers-color-scheme:dark){:root{--bg:#181614;--card:#22201d;--text:#eee8df;--muted:#b0a89c;--accent:#d9a066;--line:#37332e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 Georgia,serif}
+.wrap{max-width:920px;margin:0 auto;padding:16px}
+nav{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);z-index:5}
+nav .wrap{display:flex;gap:8px;overflow-x:auto;padding:10px 16px}
+nav a{flex:none;border:1px solid var(--line);background:var(--card);color:var(--text);padding:6px 14px;border-radius:999px;text-decoration:none;font:15px system-ui,sans-serif}
+nav a.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+h1,h2{margin:.4em 0}
+.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;margin-top:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;color:inherit;text-decoration:none;display:block}
+.pic{width:100%;aspect-ratio:4/3;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:56px;background:var(--line)}
+img.pic{display:block}
+.body{padding:12px}
+.price{font-weight:700;color:var(--accent)}
+.sold{opacity:.55}.sold .price{text-decoration:line-through}
+.btn{display:inline-block;margin:8px 8px 0 0;padding:8px 12px;background:var(--accent);color:#fff;border-radius:8px;text-decoration:none;font:15px system-ui,sans-serif}
+</style>
+</head>
+<body>
+<nav><div class="wrap" id="menu"></div></nav>
+<div class="wrap" id="view"></div>
+<script>
+// ===== BEÁLLÍTÁSOK (ezt egyszer kell kitölteni) =====
+const SHEET_URL = "";   // ide kerül a Google Táblázat közzétett CSV-linkje
+const EMAIL = "kato.martin.eduard@gmail.com";
+const PHONE = "+36204729005", PHONE_SHOWN = "+36 20 472 9005";
+// ====================================================
+const CATS = [
+  {id:"babak", key:"baba", name:"Babák", emoji:"🧸"},
+  {id:"orak", key:"ora", name:"Órák", emoji:"🕰️"},
+  {id:"disztargyak", key:"disz", name:"Dísztárgyak", emoji:"🏺"},
+  {id:"kozlekedes", key:"kozlek", name:"Közlekedés", emoji:"🚲"},
+  {id:"egyeb", key:"egyeb", name:"Egyéb használati tárgyak", emoji:"🧰"}
+];
+// Példa adatok, amíg nincs Google Táblázat megadva
+let ITEMS = [
+  {cat:"baba", name:"Példa baba", price:"4 000 Ft", desc:"Régi porcelánbaba, szép állapotban.", photo:"", sold:false},
+  {cat:"ora", name:"Példa falióra", price:"10 000 Ft", desc:"Működő, felhúzós.", photo:"", sold:false}
+];
+const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+const catOf = raw => CATS.find(c => norm(raw).startsWith(c.key));
+function photoUrl(p){
+  p = (p||"").trim(); if(!p) return "";
+  const m = p.match(/\/d\/([\w-]+)/) || p.match(/[?&]id=([\w-]+)/);
+  if(m && /drive\.google/.test(p)) return "https://drive.google.com/thumbnail?id="+m[1]+"&sz=w1000";
+  return /^https?:/.test(p) ? p : "images/"+encodeURIComponent(p);
+}
+function parseCSV(t){
+  const rows=[];let row=[],f="",q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){ if(ch=='"'){ if(t[i+1]=='"'){f+='"';i++} else q=false } else f+=ch }
+    else if(ch=='"') q=true;
+    else if(ch==','){row.push(f);f=""}
+    else if(ch=='\n'||ch=='\r'){ if(ch=='\r'&&t[i+1]=='\n')i++; row.push(f);rows.push(row);row=[];f="" }
+    else f+=ch;
+  }
+  if(f||row.length){row.push(f);rows.push(row)}
+  return rows;
+}
+async function load(){
+  if(!SHEET_URL) return;
+  try{
+    const r = await fetch(SHEET_URL); const rows = parseCSV(await r.text()).slice(1);
+    ITEMS = rows.filter(x => (x[1]||"").trim()).map(x => ({
+      cat:x[0], name:x[1], price:x[2]||"", desc:x[3]||"", photo:x[4]||"", sold:norm(x[5]).startsWith("i")
+    }));
+  }catch(e){ ITEMS = []; }
+}
+const $ = (tag, cls, txt) => { const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; };
+function pic(url, emoji){
+  if(url){ const i=$("img","pic"); i.src=url; i.alt=""; i.loading="lazy"; return i; }
+  return $("div","pic",emoji||"");
+}
+function itemsOf(c){ return ITEMS.filter(i => { const x=catOf(i.cat); return x && x.id===c.id; }); }
+function home(v){
+  v.append($("h1",null,"Nagyszüleim régi kincsei"));
+  v.append($("p",null,"Nagyszüleimtől örökölt tárgyakat kínálok eladásra. A képeken látható termékek elérhetők. Ha több információt szeretnél, hívj bátran, vagy írj. Személyesen átvehető, vagy futárral kiküldöm."));
+  const g=$("div","grid");
+  CATS.forEach(c=>{
+    const first = itemsOf(c).find(i=>i.photo);
+    const a=$("a","card"); a.href="#"+c.id;
+    a.append(pic(first?photoUrl(first.photo):"", c.emoji));
+    const b=$("div","body"); b.append($("strong",null,c.name)); a.append(b); g.append(a);
+  });
+  v.append(g);
+}
+function category(v,c){
+  v.append($("h2",null,c.name));
+  const list=itemsOf(c);
+  if(!list.length){ v.append($("p","muted","Ebben a kategóriában jelenleg nincs termék.")); return; }
+  const g=$("div","grid");
+  list.forEach(i=>{
+    const d=$("div","card"+(i.sold?" sold":""));
+    d.append(pic(photoUrl(i.photo), c.emoji));
+    const b=$("div","body");
+    b.append($("strong",null,i.name), $("div","price",i.price), $("p","muted",i.desc));
+    if(i.sold){ b.append($("p","muted","Elkelt")); }
+    else{
+      const m=$("a","btn","Írok"); m.href="mailto:"+EMAIL+"?subject="+encodeURIComponent("Érdeklődés: "+i.name);
+      const t=$("a","btn","Hívok"); t.href="tel:"+PHONE;
+      b.append(m,t);
+    }
+    d.append(b); g.append(d);
+  });
+  v.append(g);
+}
+function contact(v){
+  v.append($("h2",null,"Elérhetőségeim"));
+  const p1=$("p"); p1.append("Telefon: "); const t=$("a",null,PHONE_SHOWN); t.href="tel:"+PHONE; p1.append(t);
+  const p2=$("p"); p2.append("Email: "); const m=$("a",null,EMAIL); m.href="mailto:"+EMAIL; p2.append(m);
+  v.append(p1,p2,$("p",null,"Ha bármi megtetszik, vagy kérdésed merül fel, írj, vagy hívj bátran, megegyezünk."));
+  v.append($("p","muted","Az oldal nem használ sütiket és nem gyűjt adatot."));
+}
+function show(){
+  const id=(location.hash||"#").slice(1), v=document.getElementById("view"); v.innerHTML="";
+  const c=CATS.find(x=>x.id===id);
+  if(c) category(v,c); else if(id==="elerhetosegeim") contact(v); else home(v);
+  document.querySelectorAll("nav a").forEach(a=>a.classList.toggle("on", a.getAttribute("href")==="#"+id));
+  window.scrollTo(0,0);
+}
+const menu=document.getElementById("menu");
+[["","Kezdőlap"],...CATS.map(c=>[c.id,c.name]),["elerhetosegeim","Elérhetőségeim"]].forEach(([h,t])=>{
+  const a=$("a",null,t); a.href="#"+h; menu.append(a);
+});
+window.addEventListener("hashchange",show);
+load().then(show);
+</script>
+</body>
+</html>
